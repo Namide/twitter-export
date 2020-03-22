@@ -2,7 +2,7 @@
 (() => {
   'use strict'
 
-  let endTimeout
+  let scrollNextTimeout
   const tweets = []
 
   const start = () => {
@@ -16,26 +16,55 @@
         if (el.querySelector('*[lang]'))
         {
           const text = el.querySelector('*[lang]').textContent
-          const imgs = [...el.querySelectorAll('img[alt="Image"]')]
+          let inputs = [...el.querySelectorAll('img[alt="Image"]')]
             .map(img => img.src.replace('&name=small', ''))
           const date = el.querySelector('time').getAttribute('datetime')
           const link = el.querySelector('a[role=link][title]').href
-          // const video = el.querySelector('*[data-testid="playButton"]').href
-          // if (video) { }
+          const videoButton = el.querySelector('*[data-testid="previewInterstitial"]')
 
-          const hash = text + ',' + date + ',' + link + ',' + imgs.join(',')
-          
-          if (!tweets.find(tweet => tweet.hash === hash)) {
-            if (imgs.length > 0) {
-              tweets.push(...imgs.map(img => ({ hash, text, date, img, link })))
-            } else {
-              tweets.push({ hash, text, date, img: '', link })
+          if (!videoButton && inputs.length < 1) {
+            const externalLink = el.querySelector('a[role=link][target=_blank]')
+            if (externalLink) {
+              inputs = [externalLink.href]
             }
+          }
+          
+          if (videoButton) {
+            clearTimeout(scrollNextTimeout)
+            videoButton.click()
+
+            const load = () => {
+              const video = el.querySelector('video')
+              if (video) {
+                const videoHref = video.src
+                if (videoHref.indexOf('http') === 0) {
+                  inputs = [videoHref]
+                }
+                addTweet({ text, date, inputs, link })
+                scrollNext()
+              } else {
+                setTimeout(load, 125)
+              }
+            }
+            load()
+          } else {
+            addTweet({ text, date, inputs, link })
           }
         }
       })
 
     console.log('loaded:', tweets.length)
+  }
+
+  const addTweet = ({ text, date, link, inputs = [] }) => {
+    const hash = text + ',' + date + ',' + link
+    if (!tweets.find(tweet => tweet.hash === hash)) {
+      if (inputs.length > 0) {
+        tweets.push(...inputs.map(input => ({ hash, text, date, input, link })))
+      } else {
+        tweets.push({ hash, text, date, input: '', link })
+      }
+    }
   }
 
   const scrollNext = (force = false) => {
@@ -47,12 +76,14 @@
 
     if (current < limit) {
       window.scroll(0, next)
-      setTimeout(scrollNext, 10)
+      clearTimeout(scrollNextTimeout)
+      scrollNextTimeout = setTimeout(scrollNext, 10)
     } else if (force) {
       onEnd()
     } else {
       window.scroll(0, next)
-      setTimeout(scrollNext, 10000, true)
+      clearTimeout(scrollNextTimeout)
+      scrollNextTimeout = setTimeout(scrollNext, 10000, true)
     }
   }
 
@@ -82,7 +113,7 @@
     tweets.forEach(tweet => {
       csv += sanitizeStr(tweet.date)
         + ',' + sanitizeStr(tweet.link)
-        + ',' + sanitizeStr(tweet.img)
+        + ',' + sanitizeStr(tweet.input)
         + ',' + sanitizeStr(tweet.text)
         + '\n'
     })
