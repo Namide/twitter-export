@@ -38,19 +38,21 @@
     console.log('loaded:', tweets.length)
   }
 
-  const scrollNext = () => {
+  const scrollNext = (force = false) => {
     const next = window.scrollY + 20
-    const nextLimit = window.scrollY + window.innerHeight
+    const current = window.scrollY + window.innerHeight
     const limit = Math.max( document.body.scrollHeight, document.body.offsetHeight)
 
     getTweets()
 
-    if (nextLimit < limit) {
+    if (current < limit) {
       window.scroll(0, next)
       setTimeout(scrollNext, 10)
+    } else if (force) {
+      onEnd()
     } else {
-      clearTimeout(endTimeout)
-      endTimeout = setTimeout(onEnd, 5000)
+      window.scroll(0, next)
+      setTimeout(scrollNext, 10000, true)
     }
   }
 
