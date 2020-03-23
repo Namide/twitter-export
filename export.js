@@ -45,6 +45,9 @@
               } else {
                 setTimeout(load, 125)
               }
+
+              // If load error
+              setTimeout(scrollNext, 10000)
             }
             load()
           } else {
