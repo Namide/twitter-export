@@ -3,11 +3,15 @@
   'use strict'
 
   let scrollNextTimeout
+  let endTimeout
+  let count
+  let pauseVideo = 0
   const tweets = []
 
   const start = () => {
     addTweetsLoadListener()
-    scrollNext()
+    window.scroll(0, window.innerHeight)
+    setTimeout(scrollNext, 2000)
   }
 
   const getTweets = () => {
@@ -30,8 +34,9 @@
           }
           
           if (videoButton) {
-            clearTimeout(scrollNextTimeout)
+            pauseVideo++
             videoButton.click()
+            let loadTimeout
 
             const load = () => {
               const video = el.querySelector('video')
@@ -41,14 +46,19 @@
                   inputs = [videoHref]
                 }
                 addTweet({ text, date, inputs, link })
-                scrollNext()
+                clearTimeout(lastTimeout)
+                pauseVideo--
               } else {
-                setTimeout(load, 125)
+                loadTimeout = setTimeout(load, 125)
               }
-
-              // If load error
-              setTimeout(scrollNext, 10000)
             }
+
+            // If load error
+            const lastTimeout = setTimeout(() => {
+              clearTimeout(loadTimeout)
+              pauseVideo--
+            }, 5000)
+            
             load()
           } else {
             addTweet({ text, date, inputs, link })
@@ -56,7 +66,27 @@
         }
       })
 
-    console.log('loaded:', tweets.length)
+    if (count !== tweets.length) {
+      count = tweets.length
+      console.log('loaded:', tweets.length)
+    }
+  }
+
+  const isEnd = () => {
+    const current = window.scrollY + window.innerHeight
+    const max = Math.max( document.body.scrollHeight, document.body.offsetHeight)
+
+    if (current >= max) {
+      return new Promise(resolve => {
+        setTimeout(() => {
+          const current = window.scrollY + window.innerHeight
+          const max = Math.max( document.body.scrollHeight, document.body.offsetHeight)
+          resolve(current >= max)
+        }, 10000)
+      })
+    } else {
+      return Promise.resolve(false)
+    }
   }
 
   const addTweet = ({ text, date, link, inputs = [] }) => {
@@ -70,28 +100,27 @@
     }
   }
 
-  const scrollNext = (force = false) => {
-    const next = window.scrollY + 20
-    const current = window.scrollY + window.innerHeight
-    const limit = Math.max( document.body.scrollHeight, document.body.offsetHeight)
-
+  const scrollNext = () => {
     getTweets()
 
-    if (current < limit) {
-      window.scroll(0, next)
-      clearTimeout(scrollNextTimeout)
-      scrollNextTimeout = setTimeout(scrollNext, 10)
-    } else if (force) {
-      onEnd()
-    } else {
-      window.scroll(0, next)
-      clearTimeout(scrollNextTimeout)
-      scrollNextTimeout = setTimeout(scrollNext, 10000, true)
-    }
+    isEnd()
+      .then(isEnd => {
+        if (!isEnd) {
+          if (pauseVideo === 0) {
+            const next = window.scrollY + 20
+            window.scroll(0, next)
+          }
+          clearTimeout(scrollNextTimeout)
+          scrollNextTimeout = setTimeout(scrollNext, 10)
+        } else {
+          clearTimeout(scrollNextTimeout)
+          clearTimeout(endTimeout)
+          onEnd()
+        }
+      })
   }
 
   const onEnd = () => {
-    console.log('ended')
     const csv = createCsv(tweets)
     downloadCsv(csv)
   }
